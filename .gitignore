@@ -1,0 +1,48 @@
+# ===== STM32CubeIDE / Eclipse =====
+.cproject
+.project
+.settings/
+Debug/
+Release/
+*.launch
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.o
+*.d
+*.a
+
+# ===== STM32CubeMX =====
+*.ioc.bak
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.log
+
+# ===== Compiled C binaries (dashboard) =====
+dashboard/spa_calc.exe
+dashboard/spa_calc
+dashboard/main.exe
+dashboard/*.dll
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Editor =====
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== Data / Logs =====
+data/*.csv
+data/*.log

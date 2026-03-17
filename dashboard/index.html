@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Tracker Command Center</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            overflow-y: auto;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            background: rgba(255,255,255,0.02);
+            border-radius: 15px;
+            padding: 30px 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, var(--mode-color) 0%, transparent 70%);
+            opacity: 0.1;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.1; }
+            50% { transform: scale(1.1); opacity: 0.2; }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            position: relative;
+            z-index: 1;
+            margin-bottom: 15px;
+        }
+
+        .mode-indicator {
+            display: inline-block;
+            padding: 10px 30px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            font-weight: 600;
+            background: var(--mode-color);
+            color: #000;
+            box-shadow: 0 0 20px var(--mode-color);
+            animation: glow 2s ease-in-out infinite;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px var(--mode-color); }
+            50% { box-shadow: 0 0 30px var(--mode-color), 0 0 40px var(--mode-color); }
+        }
+
+        /* Grid Panels */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.03);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .panel:hover {
+            transform: translateY(-5px);
+            border-color: var(--mode-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .panel-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--mode-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--mode-color);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--mode-color);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .panel-content {
+            font-size: 1.8em;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+        }
+
+        .label {
+            font-size: 0.5em;
+            color: #888;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        /* Algorithm Comparison (HERO PANEL) */
+        .algo-panel {
+            grid-column: span 3;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+            border: 2px solid var(--mode-color);
+        }
+
+        .algo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .algo-box {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .algo-box h3 {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .algo-value {
+            font-size: 2em;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+
+        .delta-bar {
+            margin: 15px 0;
+        }
+
+        .delta-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .delta-progress {
+            height: 25px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .delta-fill {
+            height: 100%;
+            background: var(--accuracy-color);
+            border-radius: 15px;
+            transition: width 0.5s ease, background-color 0.5s ease;
+            box-shadow: 0 0 15px var(--accuracy-color);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 20px;
+        }
+
+        /* Servo Gauges */
+        .gauge {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 10px auto;
+        }
+
+        .gauge-svg {
+            transform: rotate(-90deg);
+        }
+
+        .gauge-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.1);
+            stroke-width: 10;
+        }
+
+        .gauge-progress {
+            fill: none;
+            stroke: var(--mode-color);
+            stroke-width: 10;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+            filter: drop-shadow(0 0 5px var(--mode-color));
+        }
+
+        .gauge-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.8em;
+            font-weight: 600;
+            color: var(--mode-color);
+        }
+
+        /* Connection Status */
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 1000;
+        }
+
+        .status.connected {
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+
+        .status.disconnected {
+            border-color: #ff3366;
+            color: #ff3366;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .algo-panel {
+                grid-column: span 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .algo-panel {
+                grid-column: span 1;
+            }
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="status disconnected" id="status">● DISCONNECTED</div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Solar Tracker Monitoring Center</h1>
+            <div class="mode-indicator" id="modeIndicator">INITIALIZING</div>
+        </div>
+
+        <!-- Top Row -->
+        <div class="grid">
+            <!-- Time Panel -->
+            <div class="panel">
+                <div class="panel-title">⏰ SYSTEM TIME</div>
+                <div class="panel-content" id="timePanel">
+                    <span class="label">RTC LOCKED</span>
+                    <div id="dateTime">--:--:--</div>
+                    <div style="font-size: 0.5em; margin-top: 5px;" id="date">----/--/--</div>
+                </div>
+            </div>
+
+            <!-- Location Panel -->
+            <div class="panel">
+                <div class="panel-title">📍 LOCATION</div>
+                <div class="panel-content">
+                    <span class="label" id="locSource">FIXED</span>
+                    <div id="location" style="font-size: 0.9em;">
+                        <div id="latitude">--°</div>
+                        <div id="longitude">--°</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Solar Position Panel -->
+            <div class="panel">
+                <div class="panel-title">☀️ SOLAR POSITION</div>
+                <div class="panel-content">
+                    <div style="font-size: 0.7em;">
+                        <div>Az: <span id="solarAz">--</span>°</div>
+                        <div>El: <span id="solarEl">--</span>°</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Servo Panel -->
+            <div class="panel">
+                <div class="panel-title">🤖 SERVO CONTROL</div>
+                <div class="gauge">
+                    <svg class="gauge-svg" viewBox="0 0 160 160">
+                        <circle class="gauge-bg" cx="80" cy="80" r="70"></circle>
+                        <circle class="gauge-progress" id="servoGaugeAz" cx="80" cy="80" r="70" 
+                                stroke-dasharray="439.6" stroke-dashoffset="439.6"></circle>
+                    </svg>
+                    <div class="gauge-text" id="servoAzText">0°</div>
+                </div>
+                <div style="text-align: center; font-size: 0.8em; margin-top: -15px; color: #888;">Azimuth Servo</div>
+            </div>
+
+            <!-- Elevation Servo Panel -->
+            <div class="panel">
+                <div class="panel-title">🎯 ELEVATION SERVO</div>
+                <div class="gauge">
+                    <svg class="gauge-svg" viewBox="0 0 160 160">
+                        <circle class="gauge-bg" cx="80" cy="80" r="70"></circle>
+                        <circle class="gauge-progress" id="servoGaugeEl" cx="80" cy="80" r="70" 
+                                stroke-dasharray="439.6" stroke-dashoffset="439.6"></circle>
+                    </svg>
+                    <div class="gauge-text" id="servoElText">0°</div>
+                </div>
+                <div style="text-align: center; font-size: 0.8em; margin-top: -15px; color: #888;">Elevation Servo</div>
+            </div>
+
+            <!-- Voltage Display -->
+            <div class="panel">
+                <div class="panel-title">⚡ VOLTAGE</div>
+                <div class="panel-content">
+                    <div style="font-size: 1.2em;">
+                        <span id="voltage">0.00</span> V
+                    </div>
+                    <div style="font-size: 0.4em; margin-top: 10px; color: #888;">
+                        Current: <span id="current">0.000</span> A
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Algorithm Comparison (HERO) -->
+        <div class="panel algo-panel">
+            <div class="panel-title">🎯 ALGORITHM VALIDATION (NREL SPA)</div>
+            
+            <div class="algo-grid">
+                <div class="algo-box">
+                    <h3>FIRMWARE ALGORITHM</h3>
+                    <div class="algo-value">
+                        Az: <span id="firmAz">--</span>°<br>
+                        El: <span id="firmEl">--</span>°
+                    </div>
+                </div>
+                <div class="algo-box">
+                    <h3>NREL SPA (USA GOV REFERENCE)</h3>
+                    <div class="algo-value">
+                        Az: <span id="spaAz">--</span>°<br>
+                        El: <span id="spaEl">--</span>°
+                    </div>
+                </div>
+            </div>
+
+            <div class="delta-bar">
+                <div class="delta-label">
+                    <span>ΔAZIMUTH: <span id="deltaAz">--</span>°</span>
+                    <span id="azAccuracy">--</span>
+                </div>
+                <div class="delta-progress">
+                    <div class="delta-fill" id="deltaAzBar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="delta-bar">
+                <div class="delta-label">
+                    <span>ΔELEVATION: <span id="deltaEl">--</span>°</span>
+                    <span id="elAccuracy">--</span>
+                </div>
+                <div class="delta-progress">
+                    <div class="delta-fill" id="deltaElBar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="errorChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =================== GLOBAL STATE ===================
+        const state = {
+            mode: 'WAIT',
+            connected: false,
+            errorHistory: {
+                labels: [],
+                azimuth: [],
+                elevation: []
+            }
+        };
+
+        const modeColors = {
+            DEMO: '#00D9FF',
+            TRACKING: '#00FF88',
+            REAL: '#00FF88',
+            NIGHT: '#9D4EDD',
+            'CHECK MODE': '#FF6B35',
+            WAIT: '#FF3366',
+            ERROR: '#FF3366'
+        };
+
+        const accuracyColors = {
+            excellent: '#00FF88',
+            good: '#FFD700',
+            poor: '#FF3366'
+        };
+
+        // Set initial mode color
+        document.documentElement.style.setProperty('--mode-color', modeColors.WAIT);
+        document.documentElement.style.setProperty('--accuracy-color', accuracyColors.excellent);
+
+        // =================== WEBSOCKET CONNECTION ===================
+        let ws;
+        let reconnectInterval;
+
+        function connect() {
+            ws = new WebSocket('ws://localhost:8765');
+
+            ws.onopen = () => {
+                console.log('✓ Connected to server');
+                state.connected = true;
+                updateStatus(true);
+                clearInterval(reconnectInterval);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateUI(data);
+            };
+
+            ws.onclose = () => {
+                console.log('✗ Disconnected from server');
+                state.connected = false;
+                updateStatus(false);
+                reconnectInterval = setInterval(connect, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // =================== UI UPDATES ===================
+        function updateUI(data) {
+            // Mode
+            state.mode = data.mode;
+            updateMode(data.mode);
+
+            // DateTime
+            const dt = data.datetime;
+            document.getElementById('dateTime').textContent = 
+                `${pad(dt.hour)}:${pad(dt.minute)}:${pad(dt.second)}`;
+            document.getElementById('date').textContent = 
+                `${pad(dt.day)}/${pad(dt.month)}/${dt.year}`;
+
+            // Location
+            const loc = data.location;
+            document.getElementById('locSource').textContent = loc.source;
+            document.getElementById('latitude').textContent = 
+                `${loc.latitude.toFixed(4)}°${loc.ns}`;
+            document.getElementById('longitude').textContent = 
+                `${loc.longitude.toFixed(4)}°${loc.ew}`;
+
+            // Solar Position
+            document.getElementById('solarAz').textContent = data.firmware.azimuth.toFixed(1);
+            document.getElementById('solarEl').textContent = data.firmware.elevation.toFixed(1);
+
+            // Servo
+            updateServoGauge('servoGaugeAz', data.servo.azimuth, 180);
+            updateServoGauge('servoGaugeEl', data.servo.elevation, 90);
+            document.getElementById('servoAzText').textContent = `${data.servo.azimuth.toFixed(0)}°`;
+            document.getElementById('servoElText').textContent = `${data.servo.elevation.toFixed(0)}°`;
+
+            // Voltage & Current
+            document.getElementById('voltage').textContent = data.power.voltage.toFixed(2);
+            document.getElementById('current').textContent = data.power.current.toFixed(3);
+
+            // Algorithm Comparison
+            if (data.spa && data.delta) {
+                document.getElementById('firmAz').textContent = data.firmware.azimuth.toFixed(2);
+                document.getElementById('firmEl').textContent = data.firmware.elevation.toFixed(2);
+                document.getElementById('spaAz').textContent = data.spa.azimuth.toFixed(2);
+                document.getElementById('spaEl').textContent = data.spa.elevation.toFixed(2);
+                document.getElementById('deltaAz').textContent = Math.abs(data.delta.azimuth).toFixed(2);
+                document.getElementById('deltaEl').textContent = Math.abs(data.delta.elevation).toFixed(2);
+
+                const accuracy = data.delta.accuracy.toUpperCase();
+                document.getElementById('azAccuracy').textContent = accuracy;
+                document.getElementById('elAccuracy').textContent = accuracy;
+
+                const color = accuracyColors[data.delta.accuracy];
+                updateDeltaBars(data.delta.azimuth, data.delta.elevation, color);
+
+                // Update chart
+                updateErrorChart(data.delta.azimuth, data.delta.elevation);
+            }
+        }
+
+        function updateMode(mode) {
+            const indicator = document.getElementById('modeIndicator');
+            indicator.textContent = mode;
+            
+            const color = modeColors[mode] || modeColors.WAIT;
+            document.documentElement.style.setProperty('--mode-color', color);
+        }
+
+        function updateStatus(connected) {
+            const status = document.getElementById('status');
+            if (connected) {
+                status.textContent = '● CONNECTED';
+                status.className = 'status connected';
+            } else {
+                status.textContent = '● DISCONNECTED';
+                status.className = 'status disconnected';
+            }
+        }
+
+        function updateServoGauge(id, angle, maxAngle) {
+            const gauge = document.getElementById(id);
+            const circumference = 439.6;
+            const offset = circumference - (angle / maxAngle) * circumference;
+            gauge.style.strokeDashoffset = offset;
+        }
+
+        function updateDeltaBars(azDelta, elDelta, color) {
+            const azBar = document.getElementById('deltaAzBar');
+            const elBar = document.getElementById('deltaElBar');
+            
+            document.documentElement.style.setProperty('--accuracy-color', color);
+            
+            const azWidth = Math.min(Math.abs(azDelta) * 20, 100);
+            const elWidth = Math.min(Math.abs(elDelta) * 20, 100);
+            
+            azBar.style.width = `${azWidth}%`;
+            elBar.style.width = `${elWidth}%`;
+        }
+
+        // =================== CHART ===================
+        const ctx = document.getElementById('errorChart').getContext('2d');
+        const errorChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Azimuth Error',
+                        data: [],
+                        borderColor: '#00D9FF',
+                        backgroundColor: 'rgba(0, 217, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Elevation Error',
+                        data: [],
+                        borderColor: '#FF6B35',
+                        backgroundColor: 'rgba(255, 107, 53, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#e0e0e0' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#888' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    }
+                }
+            }
+        });
+
+        function updateErrorChart(azError, elError) {
+            const now = new Date().toLocaleTimeString();
+            
+            state.errorHistory.labels.push(now);
+            state.errorHistory.azimuth.push(Math.abs(azError));
+            state.errorHistory.elevation.push(Math.abs(elError));
+            
+            // Keep only last 60 seconds
+            if (state.errorHistory.labels.length > 60) {
+                state.errorHistory.labels.shift();
+                state.errorHistory.azimuth.shift();
+                state.errorHistory.elevation.shift();
+            }
+            
+            errorChart.data.labels = state.errorHistory.labels;
+            errorChart.data.datasets[0].data = state.errorHistory.azimuth;
+            errorChart.data.datasets[1].data = state.errorHistory.elevation;
+            errorChart.update('none');
+        }
+
+        // =================== UTILITIES ===================
+        function pad(num) {
+            return String(num).padStart(2, '0');
+        }
+
+        // =================== INITIALIZE ===================
+        connect();
+    </script>
+</body>
+</html>
